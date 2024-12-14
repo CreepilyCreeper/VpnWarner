@@ -6,6 +6,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.WarningScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
+import net.minecraft.client.gui.widget.LayoutWidget;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.screen.ScreenTexts;
@@ -15,8 +17,8 @@ import net.minecraft.util.Formatting;
 import java.util.Date;
 
 public class VpnWarningScreen extends WarningScreen {
-    private static final Text HEADER = Text.literal("CAUTION: You have a VPN enabled!").formatted(Formatting.BOLD, Formatting.RED);
-    private static final Text MESSAGE = Text.literal("")
+    private static final Text HEADER = net.minecraft.text.Text.literal("CAUTION: You have a VPN enabled!").formatted(Formatting.BOLD, Formatting.RED);
+    private static final Text MESSAGE = net.minecraft.text.Text.literal("")
             .append("Some servers (such as Loka) will ")
             .append(Text.literal("ban your account").formatted(Formatting.RED))
             .append(" for using a VPN, and subsequently your main IP address as well.")
@@ -24,32 +26,40 @@ public class VpnWarningScreen extends WarningScreen {
             .append(Text.literal("Detected VPNs: ").formatted(Formatting.BOLD))
 
             .append(Text.literal( // trim the last comma
-                    VpnwarnerClient.DETECTED_VPN.substring(Math.min(VpnwarnerClient.DETECTED_VPN.length() - 2, 0), VpnwarnerClient.DETECTED_VPN.length() - 2
+                    VpnwarnerClient.detectedVpn.substring(Math.min(VpnwarnerClient.detectedVpn.length() - 2, 0), VpnwarnerClient.detectedVpn.length() - 2
                     )).formatted(Formatting.RED, Formatting.BOLD));
     private static final Text NARRATED_TEXT = HEADER.copy().append("\n").append(MESSAGE);
-    private final Screen parent;
+    public final Screen parent;
     private final ServerInfo entry;
 
     public VpnWarningScreen(Screen parent, ServerInfo entry) {
         super(HEADER, MESSAGE, null, NARRATED_TEXT);
         this.parent = parent;
         this.entry = entry;
-        if (!VpnDetection.isVpnEnabled()) this.client.setScreen(this.parent);
+        if (!VpnDetection.isVpnEnabled()) close();
     }
 
     @Override
-    protected void initButtons(int yOffset) {
+    public void close() {
+        this.client.setScreen(this.parent);
+    }
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Wait... "), button -> {
-            VpnwarnerClient.DISMISSED_WARNING = true;
-            VpnwarnerClient.DETECTED_VPN = "";
-            ConnectScreen.connect(this, this.client, ServerAddress.parse(entry.address), entry, false);
-        }).dimensions(this.width / 2 - 155, 100 + yOffset, 150, 20).build());
-        this.addDrawableChild(ButtonWidget.builder(ScreenTexts.BACK, button -> {
-            this.client.setScreen(this.parent);
-            VpnwarnerClient.DETECTED_VPN = "";
-        }).dimensions(this.width / 2 - 155 + 160, 100 + yOffset, 150, 20).build());
-        this.children().forEach(child -> {
+    @Override
+    protected LayoutWidget getLayout() {
+        DirectionalLayoutWidget directionalLayoutWidget = DirectionalLayoutWidget.horizontal().spacing(8);
+
+        directionalLayoutWidget.add(ButtonWidget.builder(Text.literal("Wait... "), button -> {
+            VpnwarnerClient.userDismissedWarning = true;
+            VpnwarnerClient.detectedVpn = "";
+            close();
+            assert this.client != null;
+            ConnectScreen.connect(this, this.client, ServerAddress.parse(entry.address), entry, false, null);
+        }).dimensions(this.width / 2 - 155, 100, 150, 20).build());
+        directionalLayoutWidget.add(ButtonWidget.builder(ScreenTexts.BACK, button -> {
+            close();
+            VpnwarnerClient.detectedVpn = "";
+        }).dimensions(this.width / 2 - 155 + 160, 100, 150, 20).build());
+        directionalLayoutWidget.forEachChild(child -> {
             if (child instanceof ButtonWidget button && button.getMessage().getString().contains("Wait")) {
                 button.active = false;
                 var thread = new Thread(() -> {
@@ -65,5 +75,7 @@ public class VpnWarningScreen extends WarningScreen {
                 thread.start();
             }
         });
+
+        return directionalLayoutWidget;
     }
 }

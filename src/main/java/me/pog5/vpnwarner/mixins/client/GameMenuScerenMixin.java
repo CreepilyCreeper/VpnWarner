@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GameMenuScreen.class)
 public class GameMenuScerenMixin {
     @Inject(method = "disconnect", at = @At("HEAD"))
-    private void Spoofer$handleDisconnect(CallbackInfo ci) {
-        VpnwarnerClient.DISMISSED_WARNING = false;
+    private void vpnWarner$handleDisconnect(CallbackInfo ci) {
+        VpnwarnerClient.userDismissedWarning = false;
     }
 }

@@ -15,39 +15,23 @@ import java.util.regex.Pattern;
  * Utility class for VPN detection.
  */
 public final class VpnDetection {
-    private static final Set<String> VPN_NAMES;
-    private static final Pattern VPN_REGEX_PATTERN;
-    private static final Set<String> WHITELISTED_VPN_NAMES;
-
-    static {
-        VPN_NAMES = new HashSet<>(Arrays.asList(
-                "openvpn", "nordvpn", "expressvpn", "tunnelbear", "windscribe", "protonvpn", "cyberghost", "surfshark",
-                "vyprvpn", "ipvanish", "hidemyass", "privateinternetaccess", "purevpn", "strongvpn", "hotspotshield",
-                "privatevpn", "torguard", "avastsecureline", "avgsecurevpn", "avirasecureline", "bitdefenderpremiumvpn",
-                "bullguardvpn", "ciscovpn", "fsecurefreedom", "kasperskysecureconnection", "mcafeesafeconnect",
-                "nortonsecurevpn", "pandasecurity", "totalavpn", "webrootwifi", "zenmate", "hideallip", "exitlag",
-                "wireguard", "cloudflarewarp", "mullvad", "ivpn", "mozillavpn", "azirevpn", "airvpn", "privadovpn",
-                "speedify", "atlasvpn", "surfeasy", "wevpn", "malwarebytesprivacyvpn", "ghostpath", "vpnunlimited",
-                "vpnbook", "safenetvpn", "xvpn", "urbanvpn", "supervpn", "rocketvpn", "internetprivacynow",
-                "cryptostorm", "perfectprivacy", "shellfire", "hola", "betternet", "safetynet", "vpnsecure", "upvpn",
-                "vpnht", "unlocator", "ibvpn", "strongswan", "onetunnel", "fastestvpn", "tapvpn", "vpnmonster",
-                "freevpn", "hideman", "vpnify", "vpn360", "vpnhub", "browsec", "dashvpn"
-        ));
-
-        WHITELISTED_VPN_NAMES = new HashSet<>(Arrays.asList(
-                "exitlagpmservice"
-        ));
-
-        // Build the regex pattern from VPN_NAMES
-        StringBuilder regexBuilder = new StringBuilder();
-        for (String vpnName : VPN_NAMES) {
-            if (!regexBuilder.isEmpty()) {
-                regexBuilder.append("|");
-            }
-            regexBuilder.append(Pattern.quote(vpnName));
-        }
-        VPN_REGEX_PATTERN = Pattern.compile(regexBuilder.toString(), Pattern.CASE_INSENSITIVE);
-    }
+    private static final Set<String> VPN_NAMES = new HashSet<>(Arrays.asList(
+            "openvpn", "nordvpn", "expressvpn", "tunnelbear", "windscribe", "protonvpn", "cyberghost", "surfshark",
+            "vyprvpn", "ipvanish", "hidemyass", "privateinternetaccess", "purevpn", "strongvpn", "hotspotshield",
+            "privatevpn", "torguard", "avastsecureline", "avgsecurevpn", "avirasecureline", "bitdefenderpremiumvpn",
+            "bullguardvpn", "ciscovpn", "fsecurefreedom", "kasperskysecureconnection", "mcafeesafeconnect",
+            "nortonsecurevpn", "pandasecurity", "totalavpn", "webrootwifi", "zenmate", "hideallip", "exitlag",
+            "wireguard", "cloudflarewarp", "mullvad", "ivpn", "mozillavpn", "azirevpn", "airvpn", "privadovpn",
+            "speedify", "atlasvpn", "surfeasy", "wevpn", "malwarebytesprivacyvpn", "ghostpath", "vpnunlimited",
+            "vpnbook", "safenetvpn", "xvpn", "urbanvpn", "supervpn", "rocketvpn", "internetprivacynow",
+            "cryptostorm", "perfectprivacy", "shellfire", "hola", "betternet", "safetynet", "vpnsecure", "upvpn",
+            "vpnht", "unlocator", "ibvpn", "strongswan", "onetunnel", "fastestvpn", "tapvpn", "vpnmonster",
+            "freevpn", "hideman", "vpnify", "vpn360", "vpnhub", "browsec", "dashvpn"
+    ));
+    private static final Pattern VPN_REGEX_PATTERN = Pattern.compile(String.join("|", VPN_NAMES), Pattern.CASE_INSENSITIVE);
+    private static final Set<String> WHITELISTED_VPN_NAMES = new HashSet<>(Arrays.asList(
+            "exitlagpmservice"
+    ));
 
     private VpnDetection() {
         throw new UnsupportedOperationException("This class cannot be instantiated");
@@ -93,11 +77,11 @@ public final class VpnDetection {
                     if (WHITELISTED_VPN_NAMES.contains(detectedVpn)) {
                         continue;
                     }
-                    VpnwarnerClient.DETECTED_VPN = VpnwarnerClient.DETECTED_VPN.concat(detectedVpn + " (Process), ");
+                    VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(detectedVpn + " (Process), ");
                 }
             }
         }
-        return !VpnwarnerClient.DETECTED_VPN.isEmpty();
+        return !VpnwarnerClient.detectedVpn.isEmpty();
     }
 
     private static boolean isOpenVPNConnected() {
@@ -114,15 +98,15 @@ public final class VpnDetection {
 
                 // Check for typical VPN interface names
                 if (name != null && (name.toLowerCase().contains("tun") || name.toLowerCase().contains("tap") || name.toLowerCase().contains("vpn"))) {
-                    VpnwarnerClient.DETECTED_VPN = VpnwarnerClient.DETECTED_VPN.concat(name + " (OpenVPN), ");
+                    VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(name + " (OpenVPN), ");
                 }
 
                 if (displayName != null && (displayName.toLowerCase().contains("tun") || displayName.toLowerCase().contains("tap") || displayName.toLowerCase().contains("vpn"))) {
-                    VpnwarnerClient.DETECTED_VPN = VpnwarnerClient.DETECTED_VPN.concat(displayName + " (OpenVPN), ");
+                    VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(displayName + " (OpenVPN), ");
                 }
             }
 
-            return !VpnwarnerClient.DETECTED_VPN.contains("OpenVPN");
+            return !VpnwarnerClient.detectedVpn.contains("OpenVPN");
 
         } catch (SocketException e) {
             e.printStackTrace();
