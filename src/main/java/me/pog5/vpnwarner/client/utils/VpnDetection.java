@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,70 +45,90 @@ public final class VpnDetection {
     private static boolean checkRunningProcessesOrServices() {
         try {
             String osName = System.getProperty("os.name").toLowerCase(Locale.US);
-            List<String> commands = new ArrayList<>();
-
+            List<List<String>> commands = new ArrayList<>();
+    
             if (osName.contains("win")) {
-                commands.add("tasklist"); // List running processes
-                commands.add("sc query"); // List services
+                commands.add(Arrays.asList("tasklist")); // List running processes
+                commands.add(Arrays.asList("sc", "query")); // List services
             } else {
-                commands.add("ps -e"); // List running processes
-                commands.add("systemctl list-units --type=service --all"); // List services
+                commands.add(Arrays.asList("ps", "-e")); // List running processes
+                commands.add(Arrays.asList("systemctl", "list-units", "--type=service", "--all")); // List services
             }
-
-            for (String command : commands) {
+    
+            for (List<String> command : commands) {
                 if (isVpnProcessRunning(command)) {
                     return true;
                 }
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
         return false;
     }
 
-    private static boolean isVpnProcessRunning(String command) throws IOException {
-        Process process = Runtime.getRuntime().exec(command);
+    private static boolean isVpnProcessRunning(List<String> command) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+        boolean found = false;
+        StringBuilder foundNames = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-
             String line;
             while ((line = reader.readLine()) != null) {
                 Matcher matcher = VPN_REGEX_PATTERN.matcher(line);
-                if (matcher.find()) {
+                while (matcher.find()) {
                     String detectedVpn = matcher.group();
-                    if (WHITELISTED_VPN_NAMES.contains(detectedVpn)) {
+                    String lowerDetected = detectedVpn.toLowerCase(Locale.ROOT);
+                    if (WHITELISTED_VPN_NAMES.contains(lowerDetected)) {
                         continue;
                     }
-                    VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(detectedVpn + " (Process), ");
+                    if (foundNames.length() > 0) foundNames.append(", ");
+                    foundNames.append(detectedVpn).append(" (Process)");
+                    found = true;
                 }
             }
+        } finally {
+            if (!finished) {
+                process.destroyForcibly();
+            }
         }
-        return !VpnwarnerClient.detectedVpn.isEmpty();
+        if (found) {
+            if (!VpnwarnerClient.detectedVpn.isEmpty() && !VpnwarnerClient.detectedVpn.endsWith(", ")) {
+                VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn + ", ";
+            }
+            VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(foundNames.toString()).concat(", ");
+        }
+        return found;
     }
 
     private static boolean isOpenVPNConnected() {
         try {
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
-
+            boolean found = false;
+    
             while (networkInterfaces.hasMoreElements()) {
                 NetworkInterface netInterface = networkInterfaces.nextElement();
                 String name = netInterface.getName();
                 String displayName = netInterface.getDisplayName();
                 if (!netInterface.isUp())
                     continue;
-
-
+    
+    
                 // Check for typical VPN interface names
-                if (name != null && (name.toLowerCase().contains("tun") || name.toLowerCase().contains("tap") || name.toLowerCase().contains("vpn"))) {
+                if (name != null && (name.toLowerCase(Locale.US).contains("tun") || name.toLowerCase(Locale.US).contains("tap") || name.toLowerCase(Locale.US).contains("vpn"))) {
                     VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(name + " (OpenVPN), ");
+                    found = true;
                 }
-
-                if (displayName != null && (displayName.toLowerCase().contains("tun") || displayName.toLowerCase().contains("tap") || displayName.toLowerCase().contains("vpn"))) {
+    
+                if (displayName != null && (displayName.toLowerCase(Locale.US).contains("tun") || displayName.toLowerCase(Locale.US).contains("tap") || displayName.toLowerCase(Locale.US).contains("vpn"))) {
                     VpnwarnerClient.detectedVpn = VpnwarnerClient.detectedVpn.concat(displayName + " (OpenVPN), ");
+                    found = true;
                 }
             }
-
-            return !VpnwarnerClient.detectedVpn.contains("OpenVPN");
-
+    
+            return found;
+    
         } catch (SocketException e) {
             e.printStackTrace();
         }
