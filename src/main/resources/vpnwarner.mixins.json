@@ -7,7 +7,7 @@
   ],
   "client": [
     "client.DisconnectedScreenMixin",
-    "client.GameMenuScerenMixin",
+    "client.MinecraftClientMixin",
     "client.MultiplayerScreenMixin"
   ],
   "injectors": {
